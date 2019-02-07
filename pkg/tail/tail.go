@@ -2,6 +2,7 @@ package tail
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,9 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 )
+
+// ErrFileRemoved is an error that will be returned when the tailed file is removed or renamed
+var ErrFileRemoved = errors.New("target file no longer exists")
 
 type Config struct {
 	// If true, Tail will keep retrying to open a file after it has been renamed or removed.
@@ -53,7 +57,7 @@ func (t *Tail) openFile(filepath string) error {
 	f, err := os.OpenFile(filepath, os.O_RDONLY, 0)
 	if err != nil {
 		if os.IsNotExist(err) {
-			if t.Config.Retry {
+			if !t.Config.Retry {
 				return fmt.Errorf("%v: No such file or directory", filepath)
 			}
 
@@ -108,7 +112,7 @@ func (t *Tail) tail() {
 						}
 						t.watcher.Add(t.file.Name())
 					} else {
-						t.Errors <- fmt.Errorf("missing file `%v`", t.file.Name())
+						t.Errors <- ErrFileRemoved
 						continue
 					}
 				}
@@ -160,6 +164,7 @@ func TailFile(filepath string, config *Config) (*Tail, error) {
 	return t, nil
 }
 
+// Wait blocks waiting for any errors returned by Tail
 func (t *Tail) Wait() error {
 	for {
 		select {
