@@ -9,17 +9,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cloudflare/cfssl/log"
 	"github.com/fsnotify/fsnotify"
 )
 
 type Config struct {
-	// If true, requires that the file being tailed exist when calling TailFile(), otherwise it will immediately return an error.
-	FileMustExist bool
-
-	// ResumeWatching controls whether the Tail should wait to resume watching the file in the event that it is removed or renamed.
-	// This would be useful if you wanted to support log-rotation of the target file.
-	ResumeWatching bool
+	// If true, Tail will keep retrying to open a file after it has been renamed or removed.
+	// This option is useful when you need to handle logoration.
+	Retry bool
 }
 
 type Tail struct {
@@ -57,14 +53,15 @@ func (t *Tail) openFile(filepath string) error {
 	f, err := os.OpenFile(filepath, os.O_RDONLY, 0)
 	if err != nil {
 		if os.IsNotExist(err) {
-			if t.Config.FileMustExist {
-				return fmt.Errorf("no such file `%s`", filepath)
+			if t.Config.Retry {
+				return fmt.Errorf("%v: No such file or directory", filepath)
 			}
 
 			err = waitForFile(filepath)
 			if err != nil {
 				return err
 			}
+
 			return t.openFile(filepath)
 		}
 	}
@@ -78,7 +75,7 @@ func (t *Tail) openFile(filepath string) error {
 func (t *Tail) tail() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		t.Errors <- fmt.Errorf("failed to initialize a new file watcher: %s", err)
+		t.Errors <- fmt.Errorf("fsnotify: %s", err)
 	}
 	defer watcher.Close()
 	t.watcher = watcher
@@ -94,44 +91,30 @@ func (t *Tail) tail() {
 							t.Errors <- err
 						}
 					}
+
 					t.Lines <- string(b)
 					continue
 				}
 
-				if event.Op&fsnotify.Remove == fsnotify.Remove {
-					if t.Config.ResumeWatching {
+				if event.Op&fsnotify.Remove == fsnotify.Remove || event.Op&fsnotify.Rename == fsnotify.Rename {
+					// stop watching the current file
+					t.watcher.Remove(t.file.Name())
+
+					// if retry enabled, wait for the file
+					if t.Config.Retry {
 						err := waitForFile(t.file.Name())
 						if err != nil {
 							t.Errors <- err
 						}
 						t.watcher.Add(t.file.Name())
 					} else {
-						t.Errors <- fmt.Errorf("file missing")
+						t.Errors <- fmt.Errorf("missing file `%v`", t.file.Name())
 						continue
 					}
-				}
-
-				if event.Op&fsnotify.Rename == fsnotify.Rename {
-					// stop watching the current file
-					t.watcher.Remove(t.file.Name())
-					if !t.Config.FileMustExist {
-						if err := waitForFile(t.file.Name()); err != nil {
-							t.Errors <- err
-						}
-						t.watcher.Add(t.file.Name())
-						continue
-					}
-					t.Errors <- fmt.Errorf("file %s has been renamed", t.file.Name())
 				}
 
 			case err := <-t.watcher.Errors:
-				// TODO: should these be fatal?
 				t.Errors <- err
-
-			case err := <-t.Errors:
-				// TODO: Configure a logger
-				log.Error(err)
-
 			}
 		}
 	}()
@@ -175,4 +158,13 @@ func TailFile(filepath string, config *Config) (*Tail, error) {
 	go t.tail()
 
 	return t, nil
+}
+
+func (t *Tail) Wait() error {
+	for {
+		select {
+		case err := <-t.Errors:
+			return err
+		}
+	}
 }
