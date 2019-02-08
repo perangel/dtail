@@ -2,11 +2,13 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"os"
+	"time"
 
+	"github.com/perangel/ddtail/pkg/monitor"
 	"github.com/perangel/ddtail/pkg/parser"
+	"github.com/perangel/ddtail/pkg/stats"
 	"github.com/perangel/ddtail/pkg/tail"
 	"github.com/spf13/cobra"
 )
@@ -66,15 +68,25 @@ func tailFile(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	mon := monitor.NewMonitor(&monitor.Config{
+		Resolution:     1 * time.Second,
+		AlertThreshold: 10,
+		Window:         2 * time.Minute,
+	})
+
+	requestCount := stats.Counter(0)
+
 	go func() {
 		for line := range t.Lines {
-			req, err := p.ParseLine(line)
+			requestCount.Inc(1)
+			_, err := p.ParseLine(line)
 			if err != nil {
 				log.Println("error:", err)
 			}
-			fmt.Printf("%+v\n", req)
 		}
 	}()
+
+	mon.Watch(requestCount)
 
 	return t.Wait()
 }
