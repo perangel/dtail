@@ -65,9 +65,6 @@ func (m *Monitor) Watch(ob Observable) {
 	m.ticker = time.NewTicker(1 * m.resolution)
 	for {
 		select {
-		default:
-			// update the current index in the data frame up until it
-			// reaches
 		case <-m.ticker.C:
 			if m.numTicks < int64(len(m.data)) {
 				m.data[m.numTicks] = ob.Value()
