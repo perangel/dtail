@@ -2,13 +2,13 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"time"
 
 	"github.com/perangel/ddtail/pkg/monitor"
 	"github.com/perangel/ddtail/pkg/parser"
-	"github.com/perangel/ddtail/pkg/stats"
 	"github.com/perangel/ddtail/pkg/tail"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +22,7 @@ const (
 
 var (
 	// flag vars
-	alertThreshold int
+	alertThreshold float64
 	alertWindow    int
 	followRetry    bool
 )
@@ -43,9 +43,9 @@ ddtail is a command-line utility for real-time analysis of a live log file (e.g.
 }
 
 func init() {
-	ddtailCmd.Flags().IntVarP(
+	ddtailCmd.Flags().Float64VarP(
 		&alertThreshold,
-		flagAlertThreshold, "t", 10,
+		flagAlertThreshold, "t", 10.0,
 		"Average request/sec that will trigger an alert within a given alert window.",
 	)
 
@@ -61,32 +61,46 @@ func init() {
 }
 
 func tailFile(cmd *cobra.Command, args []string) error {
-	p := parser.NewParser()
-
 	t, err := tail.TailFile(args[0], &tail.Config{Retry: followRetry})
 	if err != nil {
 		return err
 	}
 
-	mon := monitor.NewMonitor(&monitor.Config{
+	// create a new monitor
+	requestRateMonitor := monitor.NewMonitor(&monitor.Config{
 		Resolution:     1 * time.Second,
-		AlertThreshold: 10,
+		AlertThreshold: alertThreshold,
+		Aggregtor:      monitor.Mean,
 		Window:         2 * time.Minute,
 	})
 
-	requestCount := stats.Counter(0)
+	// create a counter for tracking requests
+	requestCount := new(monitor.Counter)
+	requestRateMonitor.Watch(requestCount)
 
+	// parse the lines as they are emitted by the Tail, incrementing the
+	// counter for each request line
+	p := parser.NewParser()
 	go func() {
 		for line := range t.Lines {
-			requestCount.Inc(1)
 			_, err := p.ParseLine(line)
 			if err != nil {
 				log.Println("error:", err)
 			}
+			requestCount.Inc(1)
 		}
 	}()
 
-	mon.Watch(requestCount)
+	go func() {
+		for {
+			select {
+			case t := <-requestRateMonitor.Triggered:
+				fmt.Println("triggered at: ", t)
+			case t := <-requestRateMonitor.Resolved:
+				fmt.Println("resolved at: ", t)
+			}
+		}
+	}()
 
 	return t.Wait()
 }
