@@ -1,14 +1,8 @@
 package monitor
 
-import "time"
-
-// Observable is an interface for any observable metric.
-// For the simplicity of the exercise an Observable is limited to an
-// int64 based measturement.
-type Observable interface {
-	Value() int64
-	Reset()
-}
+import (
+	"time"
+)
 
 // Config describes the configuration for a Monitor
 type Config struct {
@@ -17,10 +11,11 @@ type Config struct {
 	// The time frame during which the thresholds are evaluated
 	Window time.Duration
 
+	// The aggregation function
+	Aggregtor aggregator
+
 	// Threshold value for triggering an alert
-	AlertThreshold int64
-	// Threshold value for triggering a warning
-	WarningThreshold int64
+	AlertThreshold float64
 }
 
 // Monitor continuously observes a Metric over time and notifies
@@ -35,48 +30,76 @@ type Monitor struct {
 	Triggered chan time.Time
 	Resolved  chan time.Time
 
-	data       []int64
+	isTriggered bool
+
+	data       []Metric
 	resolution time.Duration
 
-	// TODO: Support multiple thresholds
-	threshold  int64
+	threshold  *Float
 	evalWindow time.Duration
+	aggrF      aggregator
 	ticker     *time.Ticker
-	numTicks   int64
+	ticks      *Counter
 
 	stopCh chan bool
 }
 
 // NewMonitor initializes and returns a new Monitor.
 func NewMonitor(config *Config) *Monitor {
+	threshold := Float(config.AlertThreshold)
 	return &Monitor{
 		Triggered:  make(chan time.Time),
 		Resolved:   make(chan time.Time),
-		data:       make([]int64, config.Window/config.Resolution),
+		data:       make([]Metric, config.Window/config.Resolution),
+		ticks:      NewCounter(),
 		resolution: config.Resolution,
-		threshold:  config.AlertThreshold,
+		threshold:  &threshold,
 		evalWindow: config.Window,
+		aggrF:      config.Aggregtor,
 		stopCh:     make(chan bool, 1),
 	}
 }
 
-// Watch configures the Monitor to watch an Observable
-func (m *Monitor) Watch(ob Observable) {
-	m.ticker = time.NewTicker(1 * m.resolution)
-	for {
-		select {
-		case <-m.ticker.C:
-			if m.numTicks < int64(len(m.data)) {
-				m.data[m.numTicks] = ob.Value()
-			} else {
-				m.data = append(m.data[1:], ob.Value())
-			}
-			m.numTicks++
-			ob.Reset()
-		case <-m.stopCh:
-			return
-		}
+// checkTrigger runs the aggregator function over the monitor's collected data.
+// If the result below the configured threshold then the Monitor notifies the time at which the
+// alert was triggered via the Triggered channel. If the Monitor was previously triggered
+// and the value is now below the threshold then the Montior notifies via the Resolved channel.
+func (m *Monitor) checkTrigger() {
+	agg := m.aggrF(m.data)
+
+	if !m.isTriggered && !agg.Less(m.threshold) {
+		// Alert: if we are not in a triggered state and we've hit the threshold
+		m.Triggered <- time.Now().UTC()
+		m.isTriggered = true
+
+	} else if m.isTriggered && agg.Less(m.threshold) {
+		// Recover: if we are in a triggered state and we are below the threshold
+		m.Resolved <- time.Now().UTC()
+		m.isTriggered = false
 	}
+}
+
+// Watch configures the Monitor to watch an Metric
+func (m *Monitor) Watch(metric Metric) {
+	go func() {
+		m.ticker = time.NewTicker(1 * m.resolution)
+		for {
+			select {
+			case <-m.ticker.C:
+				ticks := m.ticks.Value()
+				if ticks < int64(len(m.data)) {
+					m.data[ticks] = metric.Clone()
+				} else {
+					m.data = append(m.data[1:], metric)
+					m.checkTrigger()
+				}
+				m.ticks.Inc(1)
+				metric.Reset()
+			case <-m.stopCh:
+				return
+			}
+		}
+	}()
 }
 
 // Stop stops a monitor
