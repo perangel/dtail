@@ -1,4 +1,4 @@
-package monitor
+package metrics
 
 import (
 	"sort"
@@ -21,6 +21,11 @@ func TestCounter(t *testing.T) {
 	t.Run("get counter value", func(t *testing.T) {
 		c := Counter(10)
 		assert.Equal(t, int64(10), c.Value(), "value should be 10")
+	})
+
+	t.Run("get counter value as a float64", func(t *testing.T) {
+		c := Counter(10)
+		assert.Equal(t, float64(10), c.Float(), "float value for counter shoudl be 10.0")
 	})
 
 	t.Run("increment counter", func(t *testing.T) {
