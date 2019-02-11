@@ -131,11 +131,12 @@ func (t *Tail) tail() {
 	<-t.doneCh
 }
 
-func (t *Tail) cleanup() error {
+func (t *Tail) stop() error {
+	err := t.watcher.Remove(t.file.Name())
 	close(t.Lines)
 	close(t.Errors)
 	close(t.shutdownCh)
-	return t.watcher.Remove(t.file.Name())
+	return err
 }
 
 // TailFile configures a new Tail to follow the specified file.
@@ -150,7 +151,7 @@ func TailFile(filepath string, config *Config) (*Tail, error) {
 	signal.Notify(t.shutdownCh, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-t.shutdownCh
-		t.cleanup()
+		t.stop()
 		t.doneCh <- true
 	}()
 
