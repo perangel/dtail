@@ -1,27 +1,60 @@
 d(e)tail
 ======
 
-Like `tail -F`, but with more details!
+Like `tail`, but with more details!
 
-`dtail` is a cli utility for realtime monitoring of structured log files (e.g. HTTP access logs).
+`dtail` is a cli-tool for realtime monitoring of structured log files (e.g. HTTP access logs).
 
 Features
 --------
 
-* Follow with retry, a la `tail -F`
-* Alerting via Monitors 
+* Supports follow with retry, similar to `tail -F`
 
+* Configurable alerts with Monitors (see: `pkg/monitor`)
 
+    * Notifies when alert is triggered 
+    * Notifies when alert is resolved
 
-* Computes summary statistics about the traffic:
-    * TopN most requested pages by "section" (e.g. for path /pages/create, section is /pages)
-    * TopN most active remote clients
-    * TopN most active users
-    * Error rate (4xx and 5xx status codes)
-
-* Notify with an alert if average requests per second (RPS) exceeds a given threshold within a specified interval (e.g. Avg. requests per second exceeds 10rps over the past 2 minutes)
-    * Notify when average requests per second drops below the threshold
-
+* Prints a simple report of request traffic at a configurable interval
 
 Installation
 ------------
+```
+go get github.com/perangel/dtail
+```
+
+via docker
+
+```
+docker build -t ddtail .
+```
+
+Usage
+-----
+```
+Usage:
+  dtail [FILE] [flags]
+
+Flags:
+  -t, --alert-threshold float         Threshold value for triggering an alert during the monitor's alert window. (default 10)
+  -w, --alert-window duration         Time frame for evaluating a metric against the alert threshold. (default 2m0s)
+  -h, --help                          help for dtail
+  -r, --monitor-resolution duration   Monitor resolution (e.g. 30s, 1m, 5h) (default 1s)
+  -i, --report-interval int           Print a report every -i seconds. (default 10)
+  -F, --retry-follow tail -F          Retry file after rename or deletion. Similar to tail -F.
+  ```
+
+Run via docker
+```
+docker run -it -v /tmp:/tmp ddtail -F /tmp/access.log
+```
+
+TODO
+----
+
+* Refactor core logic in main.go into `pkg/dtail`
+* Add support for multiple monitors
+* Add support for simple dsl/query language for configuring monitors via command-line or config file
+* Add more test coverage
+* Performance testing and benchmarks
+* Add support for statsd
