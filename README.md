@@ -57,9 +57,10 @@ TODO
 * Performance testing and benchmarks
 * Add more test coverage
 * Refactor core logic in main.go into `pkg/dtail`
+* Add support for monitor alert message templates (e.g. on warn, on resolve)
 * Add support for multiple monitors
 * Add support for simple dsl/query language for configuring monitors via command-line or config file
 * Add support for StatsD 
-* Add support for configurable parsers (e.g. more than just the default Common Log format)
+* Add support for configurable parsers (currently only support Common Log format)
 * Refactor reporting logic to support templates
 * Improve error handling in a few places (e.g. don't just ignore)
