@@ -19,12 +19,12 @@ func TestCounter(t *testing.T) {
 	})
 
 	t.Run("get counter value", func(t *testing.T) {
-		c := Counter(10)
+		c := NewCounterWithValue(10)
 		assert.Equal(t, int64(10), c.Value(), "value should be 10")
 	})
 
 	t.Run("get counter value as a float64", func(t *testing.T) {
-		c := Counter(10)
+		c := NewCounterWithValue(10)
 		assert.Equal(t, float64(10), c.Float(), "float value for counter shoudl be 10.0")
 	})
 
@@ -73,7 +73,7 @@ func TestCounterImplementsMetricIface(t *testing.T) {
 }
 
 func TestMetricsImplementsSortIface(t *testing.T) {
-	metrics := make(Metrics, 10)
+	metrics := make(Observables, 10)
 	// 1..10
 	values := []int64{3, 10, 2, 4, 1, 8, 6, 9, 7, 5}
 	for i, v := range values {
