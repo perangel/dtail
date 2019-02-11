@@ -27,7 +27,7 @@ var (
 
 var dtailCmd = &cobra.Command{
 	Use:   "dtail [FILE]",
-	Short: "Tail with more details",
+	Short: "Tail, with more details",
 	Long: `
 dtail is a cli-tool for realtime monitoring of structured log files (e.g. HTTP access log).
 `,
@@ -118,7 +118,7 @@ func tailFile(cmd *cobra.Command, args []string) error {
 
 	// create a monitor for request rate
 	requestRateMonitor := monitor.NewMonitor(&monitor.Config{
-		Aggregator:     monitor.Mean,
+		Aggregator:     monitor.Mean, // TODO: accept aggregation on the command line
 		AlertThreshold: monitorAlertThreshold,
 		Resolution:     monitorResolution,
 		Window:         monitorAlertWindow,
@@ -127,7 +127,7 @@ func tailFile(cmd *cobra.Command, args []string) error {
 	// TODO: Refactor this to pkg/dtail
 	go func() {
 
-		// NOTE: requestCounter will be reset at each tick of the Monitor interval,
+		// NOTE: `requestCounter` will be reset at each tick of the Monitor interval,
 		// so DO NOT rely on it for aggregate totals during the execution of the program.
 		requestCounter := metrics.NewCounter()
 		requestRateMonitor.Watch(requestCounter)
