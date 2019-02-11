@@ -3,7 +3,7 @@ package monitor
 import (
 	"sort"
 
-	"github.com/perangel/ddtail/pkg/metrics"
+	"github.com/perangel/dtail/pkg/metrics"
 )
 
 // aggregator is a function that computes an aggregation on a collection of metrics.Metrics

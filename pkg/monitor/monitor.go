@@ -3,7 +3,7 @@ package monitor
 import (
 	"time"
 
-	"github.com/perangel/ddtail/pkg/metrics"
+	"github.com/perangel/dtail/pkg/metrics"
 )
 
 // Config describes the configuration for a Monitor

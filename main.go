@@ -8,35 +8,28 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/perangel/ddtail/pkg/metrics"
-	"github.com/perangel/ddtail/pkg/metrics/collections"
-	"github.com/perangel/ddtail/pkg/monitor"
-	"github.com/perangel/ddtail/pkg/parser"
-	"github.com/perangel/ddtail/pkg/tail"
+	"github.com/perangel/dtail/pkg/metrics"
+	"github.com/perangel/dtail/pkg/metrics/collections"
+	"github.com/perangel/dtail/pkg/monitor"
+	"github.com/perangel/dtail/pkg/parser"
+	"github.com/perangel/dtail/pkg/tail"
 	"github.com/spf13/cobra"
-)
-
-const (
-	// flag names
-	flagAlertThreshold        = "alert-threshold"
-	flagAlertWindow           = "alert-window"
-	flagFollowRetry           = "follow-retry"
-	flagReportIntervalSeconds = "report-interval"
 )
 
 var (
 	// flag vars
-	alertThreshold        float64
-	alertWindow           int
-	followRetry           bool
-	reportIntervalSeconds int
+	monitorAlertThreshold float64
+	monitorAlertWindow    time.Duration
+	monitorResolution     time.Duration
+	retryFollow           bool
+	reportInterval        int
 )
 
-var ddtailCmd = &cobra.Command{
-	Use:   "ddtail [FILE]",
-	Short: "Analyze a logfile in realtime",
+var dtailCmd = &cobra.Command{
+	Use:   "dtail [FILE]",
+	Short: "Tail with more details",
 	Long: `
-ddtail is a command-line utility for real-time analysis of a live log file (e.g. HTTP access log).
+dtail is a cli-tool for realtime monitoring of structured log files (e.g. HTTP access log).
 `,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) < 1 {
@@ -48,34 +41,43 @@ ddtail is a command-line utility for real-time analysis of a live log file (e.g.
 }
 
 func init() {
-	ddtailCmd.Flags().Float64VarP(
-		&alertThreshold,
-		flagAlertThreshold, "t", 10.0,
-		"Average request/sec that will trigger an alert within a given alert window.",
+	dtailCmd.Flags().Float64VarP(
+		&monitorAlertThreshold,
+		"alert-threshold", "t", 10.0,
+		"Threshold value for triggering an alert during the monitor's alert window.",
 	)
 
-	ddtailCmd.Flags().IntVarP(
-		&alertWindow, flagAlertWindow, "w", 2,
-		"Time frame (in minutes) for evaluating the alert threshold.",
+	dtailCmd.Flags().DurationVarP(
+		&monitorAlertWindow,
+		"alert-window", "w", 2*time.Minute,
+		"Time frame for evaluating a metric against the alert threshold.",
 	)
 
-	ddtailCmd.Flags().BoolVarP(
-		&followRetry, flagFollowRetry, "F", false,
-		"Keep trying to open a file after it is rename or removed. Useful for logrotate.",
+	dtailCmd.Flags().DurationVarP(
+		&monitorResolution,
+		"monitor-resolution", "r", 1*time.Second,
+		"Monitor resolution (e.g. 30s, 1m, 5h)",
 	)
 
-	ddtailCmd.Flags().IntVarP(
-		&reportIntervalSeconds, flagReportIntervalSeconds, "I", 10,
-		"Generate a report of traffic statistics every N seconds",
+	dtailCmd.Flags().BoolVarP(
+		&retryFollow,
+		"retry-follow", "F", false,
+		"Retry file after rename or deletion. Similar to `tail -F`.",
+	)
+
+	dtailCmd.Flags().IntVarP(
+		&reportInterval,
+		"report-interval", "i", 10,
+		"Print a report every -i seconds.",
 	)
 }
 
+// TODO: Move to DSL/query package
 func total4xxResponses(counterMap collections.CounterMap) int64 {
 	total := int64(0)
 	for k, v := range counterMap {
-		// TODO: err on strconv will skip the key. This should be handled better
+		// FIXME: Don't skip key on error
 		i, err := strconv.Atoi(k)
-		fmt.Println(i)
 		if err != nil {
 			continue
 		}
@@ -87,10 +89,11 @@ func total4xxResponses(counterMap collections.CounterMap) int64 {
 	return total
 }
 
+// TODO: Move to DSL/query package
 func total5xxResponses(counterMap collections.CounterMap) int64 {
 	total := int64(0)
 	for k, v := range counterMap {
-		// TODO: err on strconv will skip the key. This should be handled better
+		// FIXME: Don't skip key on error
 		i, err := strconv.Atoi(k)
 		if err != nil {
 			continue
@@ -106,38 +109,39 @@ func total5xxResponses(counterMap collections.CounterMap) int64 {
 
 func tailFile(cmd *cobra.Command, args []string) error {
 	filepath := args[0]
-	t, err := tail.TailFile(filepath, &tail.Config{Retry: followRetry})
+	t, err := tail.TailFile(filepath, &tail.Config{Retry: retryFollow})
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("\033[0;34mTailing file %s...\033[0m \n", filepath)
 
-	// create a new monitor
+	// create a monitor for request rate
 	requestRateMonitor := monitor.NewMonitor(&monitor.Config{
-		Resolution:     1 * time.Second,
-		AlertThreshold: alertThreshold,
 		Aggregator:     monitor.Mean,
-		//Window:         time.Duration(alertWindow) * time.Minute,
-		Window: 5 * time.Second,
+		AlertThreshold: monitorAlertThreshold,
+		Resolution:     monitorResolution,
+		Window:         monitorAlertWindow,
 	})
 
+	// TODO: Refactor this to pkg/dtail
 	go func() {
-		// create a counter for tracking requests
+
 		// NOTE: requestCounter will be reset at each tick of the Monitor interval,
 		// so DO NOT rely on it for aggregate totals during the execution of the program.
 		requestCounter := metrics.NewCounter()
 		requestRateMonitor.Watch(requestCounter)
 
-		// count total requests handled by ddtail
+		// count total requests handled by dtail
 		totalRequests := metrics.NewCounter()
 		requestsByUser := collections.NewCounterMap()
+		requestsByIP := collections.NewCounterMap()
 		requestsBySection := collections.NewCounterMap()
 		requestsByURI := collections.NewCounterMap()
 		requestsByStatusCode := collections.NewCounterMap()
 
 		parser := parser.NewParser()
-		tick := time.NewTicker(time.Duration(reportIntervalSeconds) * time.Second)
+		reportTick := time.NewTicker(time.Duration(reportInterval) * time.Second)
 		for {
 			select {
 			case line := <-t.Lines:
@@ -149,6 +153,7 @@ func tailFile(cmd *cobra.Command, args []string) error {
 				requestCounter.Inc(1)
 
 				requestsByUser.IncKey(request.AuthUser)
+				requestsByIP.IncKey(request.RemoteHost)
 				requestsBySection.IncKey(request.Section())
 				requestsByURI.IncKey(request.URI)
 				requestsByStatusCode.IncKey(fmt.Sprintf("%d", request.StatusCode))
@@ -160,17 +165,26 @@ func tailFile(cmd *cobra.Command, args []string) error {
 			case evt := <-requestRateMonitor.Resolved:
 				fmt.Printf("\033[0;32mHigh traffic alert resolved - hits = %.2f, resolved at %v\033[0m \n", evt.Value, evt.Time)
 
-			case t := <-tick.C:
+			case t := <-reportTick.C:
 				fmt.Println()
 				fmt.Println("Traffic Report:")
 				fmt.Printf("   Current time: %v\n", t)
 				fmt.Printf("   Total Requests: %d\n", totalRequests.Value())
+				fmt.Printf("   Top 3 IPs by # of requests: %v\n", requestsByIP.TopNKeys(3))
 				fmt.Printf("   Top 3 users by # of requests: %v\n", requestsByUser.TopNKeys(3))
 				fmt.Printf("   Top 3 site sections by # of requests: %v\n", requestsBySection.TopNKeys(3))
 				fmt.Printf("   Top 3 URIs by # of requests: %v\n", requestsByURI.TopNKeys(3))
 				fmt.Printf("   No. of 4xx responses: %v\n", total4xxResponses(requestsByStatusCode))
 				fmt.Printf("   No. of 5xx responses: %v\n", total5xxResponses(requestsByStatusCode))
 				fmt.Println()
+
+				// Reset all of the counters
+				totalRequests.Reset()
+				requestsByIP.Reset()
+				requestsByUser.Reset()
+				requestsBySection.Reset()
+				requestsByURI.Reset()
+				requestsByStatusCode.Reset()
 			}
 		}
 	}()
@@ -179,7 +193,7 @@ func tailFile(cmd *cobra.Command, args []string) error {
 }
 
 func main() {
-	if err := ddtailCmd.Execute(); err != nil {
+	if err := dtailCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }

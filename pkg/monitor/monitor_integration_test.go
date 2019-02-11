@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/perangel/ddtail/pkg/metrics"
+	"github.com/perangel/dtail/pkg/metrics"
 	"github.com/stretchr/testify/assert"
 )
 

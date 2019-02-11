@@ -3,7 +3,7 @@ package collections
 import (
 	"sort"
 
-	"github.com/perangel/ddtail/pkg/metrics"
+	"github.com/perangel/dtail/pkg/metrics"
 )
 
 // CounterMap is a collection map of Counters
