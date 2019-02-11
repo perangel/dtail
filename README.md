@@ -13,12 +13,14 @@ Features
 * Configurable alerts with Monitors (see: `pkg/monitor`)
 
     * Notifies when alert is triggered 
+
     * Notifies when alert is resolved
 
 * Prints a simple report of request traffic at a configurable interval
 
 Installation
 ------------
+
 ```
 go get github.com/perangel/dtail
 ```
@@ -52,10 +54,12 @@ docker run -it -v /tmp:/tmp ddtail -F /tmp/access.log
 TODO
 ----
 
+* Performance testing and benchmarks
+* Add more test coverage
 * Refactor core logic in main.go into `pkg/dtail`
 * Add support for multiple monitors
 * Add support for simple dsl/query language for configuring monitors via command-line or config file
-* Add more test coverage
-* Performance testing and benchmarks
-* Add support for statsd
-* Support for configurable parsers (e.g. more than just the default Common Log format)
+* Add support for StatsD 
+* Add support for configurable parsers (e.g. more than just the default Common Log format)
+* Refactor reporting logic to support templates
+* Improve error handling in a few places (e.g. don't just ignore)
