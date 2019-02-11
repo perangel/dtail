@@ -44,6 +44,13 @@ func (c CounterMap) TopNKeys(n int) []string {
 	return topN
 }
 
+// Reset clears all of the counters in the map
+func (c CounterMap) Reset() {
+	for k := range c {
+		c[k].Reset()
+	}
+}
+
 // reverseMap returns an inverted map
 func (c CounterMap) reverseMap() map[*metrics.Counter]string {
 	reverseMap := make(map[*metrics.Counter]string, len(c))
