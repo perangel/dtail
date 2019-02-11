@@ -27,8 +27,8 @@ func (c CounterMap) IncKey(key string) {
 func (c CounterMap) TopNKeys(n int) []string {
 	reverseMap := c.reverseMap()
 
-	// metrics.Metrics for sorting
-	values := make(metrics.Metrics, len(c))
+	// metrics.Observables for sorting
+	values := make(metrics.Observables, len(c))
 	i := 0
 	for _, v := range c {
 		values[i] = v

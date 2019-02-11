@@ -4,19 +4,19 @@ package metrics
 type Float float64
 
 // Add adds the value of another Float
-func (f *Float) Add(other Metric) {
+func (f *Float) Add(other Observable) {
 	o := other.(*Float)
 	*f += *o
 }
 
-// Multiply multiplies self by another Metric
-func (f *Float) Multiply(other Metric) {
+// Multiply multiplies self by another Observable
+func (f *Float) Multiply(other Observable) {
 	o := other.(*Float)
 	*f *= *o
 }
 
-// Less compares self to another Metric
-func (f *Float) Less(other Metric) bool {
+// Less compares self to another Observable
+func (f *Float) Less(other Observable) bool {
 	o := other.(*Float)
 	return *f < *o
 }
@@ -27,7 +27,7 @@ func (f *Float) Reset() {
 }
 
 // Clone returns a copy of a Float
-func (f *Float) Clone() Metric {
+func (f *Float) Clone() Observable {
 	nf := Float(*f)
 	return &nf
 }

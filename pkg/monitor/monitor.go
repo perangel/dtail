@@ -38,7 +38,7 @@ type Event struct {
 	Time  time.Time
 }
 
-// Monitor watches a Metric over time and notifies via channel
+// Monitor watches a Observable over time and notifies via channel
 // when the metric it is observing exceeds the configured
 // threshold over a given window of time.
 //
@@ -57,8 +57,8 @@ type Monitor struct {
 	isTriggered bool
 
 	// data is a fixed buffer of datapoints, which is sized to evalWindow/resolution
-	// e.g.  2 minutes at a 1-second resolution == [120]metrics.Metric
-	data       []metrics.Metric
+	// e.g.  2 minutes at a 1-second resolution == [120]metrics.Observable
+	data       []metrics.Observable
 	resolution time.Duration
 
 	threshold  *metrics.Float
@@ -76,7 +76,7 @@ func NewMonitor(config *Config) *Monitor {
 	return &Monitor{
 		Triggered:  make(chan *Event),
 		Resolved:   make(chan *Event),
-		data:       make([]metrics.Metric, config.Window/config.Resolution),
+		data:       make([]metrics.Observable, config.Window/config.Resolution),
 		ticks:      metrics.NewCounter(),
 		resolution: config.Resolution,
 		threshold:  &threshold,
@@ -112,8 +112,8 @@ func (m *Monitor) checkTrigger() {
 	}
 }
 
-// Watch configures the Monitor to watch an Metric
-func (m *Monitor) Watch(metric metrics.Metric) {
+// Watch configures the Monitor to watch an Observable
+func (m *Monitor) Watch(metric metrics.Observable) {
 	go func() {
 		m.ticker = time.NewTicker(1 * m.resolution)
 		for {

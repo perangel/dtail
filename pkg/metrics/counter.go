@@ -28,19 +28,19 @@ func (c *Counter) Inc(i int64) {
 }
 
 // Add adds the value of another Counter
-func (c *Counter) Add(other Metric) {
+func (c *Counter) Add(other Observable) {
 	o := other.(*Counter)
 	atomic.AddInt64(&c.i, o.i)
 }
 
-// Multiply multiplies self by another Metric
-func (c *Counter) Multiply(other Metric) {
+// Multiply multiplies self by another Observable
+func (c *Counter) Multiply(other Observable) {
 	o := other.(*Counter)
 	c.i *= o.i
 }
 
-// Less compares self to another Metric
-func (c *Counter) Less(other Metric) bool {
+// Less compares self to another Observable
+func (c *Counter) Less(other Observable) bool {
 	o := other.(*Counter)
 	return c.i < o.i
 }
@@ -51,7 +51,7 @@ func (c *Counter) Reset() {
 }
 
 // Clone returns a copy of a Counter
-func (c *Counter) Clone() Metric {
+func (c *Counter) Clone() Observable {
 	copy := atomic.LoadInt64(&c.i)
 	return &Counter{copy}
 }
