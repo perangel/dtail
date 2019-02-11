@@ -58,3 +58,4 @@ TODO
 * Add more test coverage
 * Performance testing and benchmarks
 * Add support for statsd
+* Support for configurable parsers (e.g. more than just the default Common Log format)
