@@ -1,10 +1,17 @@
-ddtail
+d(e)tail
 ======
 
-ddtail is a command-line program for real-time analysis of a live log file (e.g. HTTP access logs).
+Like `tail -F`, but with more details!
+
+`dtail` is a cli utility for realtime monitoring of structured log files (e.g. HTTP access logs).
 
 Features
 --------
+
+* Follow with retry, a la `tail -F`
+* Alerting via Monitors 
+
+
 
 * Computes summary statistics about the traffic:
     * TopN most requested pages by "section" (e.g. for path /pages/create, section is /pages)
