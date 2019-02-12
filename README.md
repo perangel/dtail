@@ -9,13 +9,9 @@ Features
 --------
 
 * Supports follow with retry, similar to `tail -F`
-
 * Configurable alerts with Monitors (see: `pkg/monitor`)
-
-    * Notifies when alert is triggered 
-
-    * Notifies when alert is resolved
-
+  * Notifies when alert is triggered
+  * Notifies when alert is resolved
 * Prints a simple report of request traffic at a configurable interval
 
 Installation
@@ -59,6 +55,7 @@ TODO
 
 * Performance testing and benchmarks
 * Add more test coverage
+* Add support for reading from `stdin`
 * Refactor core logic in main.go into `pkg/dtail`
 * Add support for monitor alert message templates (e.g. on warn, on resolve)
 * Add support for multiple monitors
