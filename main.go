@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -22,7 +21,11 @@ var (
 	monitorAlertWindow    time.Duration
 	monitorResolution     time.Duration
 	retryFollow           bool
-	reportInterval        int
+	reportInterval        time.Duration
+)
+
+const (
+	defaultLogPath = "/tmp/access.log"
 )
 
 var dtailCmd = &cobra.Command{
@@ -31,12 +34,6 @@ var dtailCmd = &cobra.Command{
 	Long: `
 dtail is a cli-tool for realtime monitoring of structured log files (e.g. HTTP access log).
 `,
-	Args: func(cmd *cobra.Command, args []string) error {
-		if len(args) < 1 {
-			return errors.New("missing required argument [FILE]")
-		}
-		return nil
-	},
 	RunE: tailFile,
 }
 
@@ -65,10 +62,10 @@ func init() {
 		"Retry file after rename or deletion. Similar to `tail -F`.",
 	)
 
-	dtailCmd.Flags().IntVarP(
+	dtailCmd.Flags().DurationVarP(
 		&reportInterval,
-		"report-interval", "i", 10,
-		"Print a report every -i seconds.",
+		"report-interval", "i", 10*time.Second,
+		"Print a report at the given interval (e.g. 30s, 1m, 5h)",
 	)
 }
 
@@ -108,7 +105,13 @@ func total5xxResponses(counterMap collections.CounterMap) int64 {
 }
 
 func tailFile(cmd *cobra.Command, args []string) error {
-	filepath := args[0]
+	var filepath string
+	if len(args) < 1 {
+		filepath = defaultLogPath
+	} else {
+		filepath = args[0]
+	}
+
 	t, err := tail.TailFile(filepath, &tail.Config{Retry: retryFollow})
 	if err != nil {
 		return err
@@ -141,7 +144,7 @@ func tailFile(cmd *cobra.Command, args []string) error {
 		requestsByStatusCode := collections.NewCounterMap()
 
 		parser := parser.NewParser()
-		reportTick := time.NewTicker(time.Duration(reportInterval) * time.Second)
+		reportTick := time.NewTicker(reportInterval)
 		for {
 			select {
 			case line := <-t.Lines:
