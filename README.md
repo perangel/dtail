@@ -17,11 +17,13 @@ Features
 Installation
 ------------
 
+Run
+
 ```
-go get github.com/perangel/dtail
+go install .
 ```
 
-via docker
+To build the docker image:
 
 ```
 docker build -t ddtail .
@@ -39,9 +41,9 @@ Flags:
   -w, --alert-window duration         Time frame for evaluating a metric against the alert threshold. (default 2m0s)
   -h, --help                          help for dtail
   -r, --monitor-resolution duration   Monitor resolution (e.g. 30s, 1m, 5h) (default 1s)
-  -i, --report-interval int           Print a report every -i seconds. (default 10)
+  -i, --report-interval duration      Print a report at the given interval (e.g. 30s, 1m, 5h) (default 10s)
   -F, --retry-follow tail -F          Retry file after rename or deletion. Similar to tail -F.
-  ```
+```
 
 Run via docker
 
@@ -51,6 +53,17 @@ Run via docker
 // see note above on limitation with mounted volumes
 docker run -it -v /tmp:/tmp ddtail -F /tmp/access.log
 ```
+
+Running Tests
+-------------
+
+To run the unit tests run:
+
+```
+go test -v ./...
+```
+
+**NOTE:** For unit tests that verify the correctness of the monitor's alerting logic see `pkg/monitor/monitor_test.go`
 
 TODO
 ----
@@ -67,3 +80,4 @@ TODO
 * Refactor reporting logic to support templates
 * Improve error handling in a few places (e.g. don't just ignore)
 * Workaround for fs events on mounted volumes [issue](https://github.com/docker/for-mac/issues/2375)
+* Port to Rust ;P
