@@ -47,6 +47,10 @@ Flags:
   ```
 
 Run via docker
+
+**NOTE:** There is an [issue](https://github.com/docker/for-mac/issues/2375) with filesystem events not triggering on mounted volumes on docker-for-mac. As a result, you'll need to write to the source file (e.g. /tmp/access.log) from inside the container to work around this.
+
+with filesystem events not firing on mounted volumes on docker-for-mac. Because `dtail` relies on [fsnotify](https://github.com/fsnotify/fsnotify), which relies on filesystem events, you need to 
 ```
 docker run -it -v /tmp:/tmp ddtail -F /tmp/access.log
 ```
@@ -64,3 +68,4 @@ TODO
 * Add support for configurable parsers (currently only support Common Log format)
 * Refactor reporting logic to support templates
 * Improve error handling in a few places (e.g. don't just ignore)
+* Workaround for fs events on mounted volumes [issue](https://github.com/docker/for-mac/issues/2375)
