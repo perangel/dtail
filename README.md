@@ -9,7 +9,7 @@ Features
 --------
 
 * Supports follow with retry, similar to `tail -F`
-* Configurable alerts with Monitors (see: `pkg/monitor`)
+* Configurable alert via Monitors (see: `pkg/monitor`)
   * Notifies when alert is triggered
   * Notifies when alert is resolved
 * Prints a simple report of request traffic at a configurable interval
@@ -29,6 +29,7 @@ docker build -t ddtail .
 
 Usage
 -----
+
 ```
 Usage:
   dtail [FILE] [flags]
@@ -47,6 +48,7 @@ Run via docker
 **NOTE:** There is an [issue](https://github.com/docker/for-mac/issues/2375) with filesystem events not triggering on mounted volumes on docker-for-mac. As a result, you'll need to write to the source file (e.g. /tmp/access.log) from inside the container to work around this.
 
 ```
+// see note above on limitation with mounted volumes
 docker run -it -v /tmp:/tmp ddtail -F /tmp/access.log
 ```
 
@@ -61,7 +63,7 @@ TODO
 * Add support for multiple monitors
 * Add support for simple dsl/query language for configuring monitors via command-line or config file
 * Add support for StatsD 
-* Add support for configurable parsers (currently only support Common Log format)
+* Add support for configurable parsers (currently only supports Common Log format)
 * Refactor reporting logic to support templates
 * Improve error handling in a few places (e.g. don't just ignore)
 * Workaround for fs events on mounted volumes [issue](https://github.com/docker/for-mac/issues/2375)
