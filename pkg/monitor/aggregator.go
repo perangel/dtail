@@ -6,7 +6,7 @@ import (
 	"github.com/perangel/dtail/pkg/metrics"
 )
 
-// aggregator is a function that computes an aggregation on a collection of metrics.Observables
+// aggregator is a function that computes an aggregation on a collection of Observables
 type aggregator func(metrics.Observables) metrics.Observable
 
 // Sum computes the sum over a collection of metrics.Observable
