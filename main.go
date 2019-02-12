@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/perangel/dtail/pkg/metrics"
@@ -126,6 +128,14 @@ func tailFile(cmd *cobra.Command, args []string) error {
 		Resolution:     monitorResolution,
 		Window:         monitorAlertWindow,
 	})
+
+	shutdownCh := make(chan os.Signal, 1)
+	signal.Notify(shutdownCh, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-shutdownCh
+		t.Stop()
+		requestRateMonitor.Stop()
+	}()
 
 	// TODO: Refactor this to pkg/dtail
 	go func() {

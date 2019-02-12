@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -31,8 +29,7 @@ type Tail struct {
 	reader  *bufio.Reader
 	watcher *fsnotify.Watcher
 
-	shutdownCh chan os.Signal
-	doneCh     chan bool
+	doneCh chan bool
 }
 
 // waitForFile will attempt to os.Stat() a file every second until it is present
@@ -131,29 +128,22 @@ func (t *Tail) tail() {
 	<-t.doneCh
 }
 
-func (t *Tail) stop() error {
+// Stop stops the tail and cleans up the channels
+func (t *Tail) Stop() error {
 	err := t.watcher.Remove(t.file.Name())
 	close(t.Lines)
 	close(t.Errors)
-	close(t.shutdownCh)
+	t.doneCh <- true
 	return err
 }
 
 // TailFile configures a new Tail to follow the specified file.
 func TailFile(filepath string, config *Config) (*Tail, error) {
 	t := &Tail{
-		Config:     config,
-		Lines:      make(chan string),
-		Errors:     make(chan error),
-		shutdownCh: make(chan os.Signal, 1),
+		Config: config,
+		Lines:  make(chan string),
+		Errors: make(chan error),
 	}
-
-	signal.Notify(t.shutdownCh, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-t.shutdownCh
-		t.stop()
-		t.doneCh <- true
-	}()
 
 	err := t.openFile(filepath)
 	if err != nil {
