@@ -1,10 +1,18 @@
 package collections
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/perangel/dtail/pkg/metrics"
 )
+
+// used for debugging
+func printCounterMap(m CounterMap) {
+	for k, v := range m {
+		fmt.Printf("%v: %v\n", k, v.Value())
+	}
+}
 
 // CounterMap is a collection map of Counters
 type CounterMap map[string]*metrics.Counter
@@ -25,7 +33,7 @@ func (c CounterMap) IncKey(key string) {
 
 // TopNKeys returns the top N keys with the highest values in the map in descending order
 func (c CounterMap) TopNKeys(n int) []string {
-	reverseMap := c.reverseMap()
+	revMap := c.reverseMap()
 
 	// metrics.Observables for sorting
 	values := make(metrics.Observables, len(c))
@@ -35,13 +43,22 @@ func (c CounterMap) TopNKeys(n int) []string {
 		i++
 	}
 
+	// FIXME: Hack. First we sort then reverse in place
 	sort.Sort(values)
-	topN := make([]string, n)
-	for i, v := range values {
-		topN[i] = reverseMap[v.(*metrics.Counter)]
+	for i := len(values)/2 - 1; i >= 0; i-- {
+		j := len(values) - 1 - i
+		values[i], values[j] = values[j], values[i]
 	}
 
-	return topN
+	topNKeys := []string{}
+	for i := 0; i < len(values); i++ {
+		if i == n {
+			break
+		}
+		topNKeys = append(topNKeys, revMap[values[i].(*metrics.Counter)])
+	}
+
+	return topNKeys
 }
 
 // Reset clears all of the counters in the map
