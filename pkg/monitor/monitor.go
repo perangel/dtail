@@ -12,11 +12,9 @@ type Config struct {
 	Resolution time.Duration
 	// The time frame during which the thresholds are evaluated
 	Window time.Duration
-
 	// An aggregation function (e.g. Mean, Min, Max, Sum, etc)
 	// For available aggregator functions see aggregator.go
 	Aggregator aggregator
-
 	// Threshold value for triggering an alert
 	AlertThreshold float64
 }
@@ -56,10 +54,13 @@ type Monitor struct {
 
 	isTriggered bool
 
-	// data is a fixed buffer of datapoints, which is sized to evalWindow/resolution
+	// data is a circular buffer of datapoints, which is sized to evalWindow/resolution
 	// e.g.  2 minutes at a 1-second resolution == [120]metrics.Observable
 	data       []metrics.Observable
+	bufSize    int
 	resolution time.Duration
+
+	rollups map[time.Duration]float64
 
 	threshold  *metrics.Float
 	evalWindow time.Duration
@@ -73,10 +74,12 @@ type Monitor struct {
 // NewMonitor initializes and returns a new Monitor.
 func NewMonitor(config *Config) *Monitor {
 	threshold := metrics.Float(config.AlertThreshold)
+	bufSize := int(config.Window / config.Resolution)
 	return &Monitor{
 		Triggered:  make(chan *Event),
 		Resolved:   make(chan *Event),
-		data:       make([]metrics.Observable, config.Window/config.Resolution),
+		data:       make([]metrics.Observable, bufSize),
+		bufSize:    bufSize,
 		ticks:      metrics.NewCounter(),
 		resolution: config.Resolution,
 		threshold:  &threshold,
@@ -112,6 +115,21 @@ func (m *Monitor) checkTrigger() {
 	}
 }
 
+// record records the value of the metric
+func (m *Monitor) record(metric metrics.Observable) {
+	ticks := m.ticks.Value()
+	// the index for inserting the next datapoint
+	insertPos := (ticks + 1) % int64(m.bufSize)
+	m.data[insertPos] = metric.Clone()
+
+	if ticks >= int64(m.bufSize) {
+		m.checkTrigger()
+	}
+
+	m.ticks.Inc(1)
+	metric.Reset()
+}
+
 // Watch configures the Monitor to watch an Observable
 func (m *Monitor) Watch(metric metrics.Observable) {
 	go func() {
@@ -119,18 +137,7 @@ func (m *Monitor) Watch(metric metrics.Observable) {
 		for {
 			select {
 			case <-m.ticker.C:
-				ticks := m.ticks.Value()
-				// for the first N ticks, where N == size of m.data, simply set via index
-				if ticks < int64(len(m.data)) {
-					m.data[ticks] = metric.Clone()
-				} else {
-					// drop the oldest value and append the latest one to the end
-					m.data = append(m.data[1:], metric.Clone())
-					// only check the trigger after we have enough datapoints
-					m.checkTrigger()
-				}
-				m.ticks.Inc(1)
-				metric.Reset()
+				m.record(metric)
 			case <-m.stopCh:
 				return
 			}
