@@ -5,6 +5,8 @@ Like `tail`, but with more details!
 
 `dtail` is a cli-tool for realtime monitoring of structured log files (e.g. HTTP access logs).
 
+**NOTE:** At the moment, this is hard-coded to only know how to process standard HTTP access logs. (see: [TODO](#todo))
+
 Features
 --------
 
